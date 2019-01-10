@@ -129,3 +129,124 @@ https://blog.csdn.net/Revivedsun/article/details/72851417
 9）数据库主从：
           服务化过程中必经的阶段，用来提升系统的 TPS。
 </pre>
+
+<pre>
+      dubbo用ProxyFactoty代理工厂将HelloServiceImpl封装成1个Inoke执行，即
+      ProxyFactory.getInvoke(ref, (Class)接口，注册URL，解码参数)，并将Invoke导出成
+      1个Exporter，包括去注册中心ZK注册服务。Invoke有本地执行的Invoke，远程通信执行的
+      Invoke。
+</pre>
+
+<pre>
+28，Dubbo源码使用了哪些设计模式
+
+A，工厂模式，ExtenstionLoader.getExtenstionLoader(Protocol.class).getAdaptiveExtenstion()
+
+B，装饰器模式+责任链，以provider的调用链为例，具体调用链代码是在protocolFilterWrapper的
+buildInvokeChain完成的,将注解中含有group=provider的Filter实现，调用顺序为
+        EchoFilter -> 
+        ClassLoaderFilter -> 
+        GenericFilter -> 
+        ContextFilter -> 
+        ExceptionFilter -> 
+        TimeoutFilter -> 
+        MonitorFilter -> 
+       TraceFilter。
+装饰器模式和责任链混合使用，Echo是回声测试请求，ClassLoaderFilter则只是在其主功能上添加了功能。
+
+C，观察者模式，provider启动时需要与注册中心交互，先注册自己的服务，再订阅自己的服务，订阅时采用了观察
+   者模式，注册中心每5s定时检查是否有服务更新，有更新则向服务提供者发送1个notify消息后即可运行
+   NotifyListener的notity方法，执行监听器方法。
+
+D，动态代理模式。  扩展JDK的ExtensionLoaderdeAdaptive实现，根据调用阶段动态参数决定调用哪个类，生成
+  ****代理类的代码是ExtensionLoader的createAdaptiveExtenstionClassLoader方法。
+</pre>
+
+<pre>
+负载均衡算法？
+
+常见6种负载均衡算法：轮询，随机，源地址哈希，加权轮询，加权随机，最小连接数。
+
+nginx5种负载均衡算法：轮询，weight，ip_hash，fair（响应时间），url_hash
+
+dubbo负载均衡算法：随机，轮询，最少活跃调用数，一致性Hash
+</pre>
+
+<pre>
+一个线程池正在处理服务如果忽然断电该怎么办？
+
+答：
+
+队列实现持久化储存，下次启动自动载入。
+但是实际需要看情况，大体思路是这样。
+添加标志位，未处理 0，处理中 1，已处理 2。每次启动的时候，把所有状态为 1 的，置为 0。或者定时器处理
+关键性的应用就给电脑配个 UPS。
+</pre>
+
+<pre>
+java并发包下有哪些类？
+
+答：ConcurrentHashMap，ConcurrentSkipListMap，ConcurrentNavigableMap
+
+CopyOnWriteArrayList
+
+BlockingQueue，BlockingDeque （ArrayBlockingQueue，LinkedBlockingDeque，LinkedBlockingQueue，
+DelayQueue，PriorityBlockingQueue，SynchronousQueue）
+
+ConcurrentLinkedDeque，ConcurrentLinkedQueue，TransferQueue，LinkedTransferQueue
+
+CopyOnWriteArraySet，ConcurrentSkipListSet
+
+CyclicBarrier，CountDownLatch
+
+Lock（ReetrantLock，ReetrantReadWriteLock）
+
+Atomic包
+</pre>
+
+<pre>
+threadlocal为什么会出现oom？
+
+答：ThreadLocal里面使用了一个存在弱引用的map, map的类型是ThreadLocal.ThreadLocalMap. Map中的key为
+一个threadlocal实例。这个Map的确使用了弱引用，不过弱引用只是针对key。每个key都弱引用指向threadlocal。 
+当把threadlocal实例置为null以后，没有任何强引用指向threadlocal实例，所以threadlocal将会被gc回收。
+但是，我们的value却不能回收，而这块value永远不会被访问到了，所以存在着内存泄露。因为存在一条从current
+ thread连接过来的强引用。只有当前thread结束以后，current thread就不会存在栈中，强引用断开，Current 
+Thread、Map value将全部被GC回收。最好的做法是将调用threadlocal的remove方法。
+
+在ThreadLocal的get(),set(),remove()的时候都会清除线程ThreadLocalMap里所有key为null的value，但是这
+些被动的预防措施并不能保证不会内存泄漏：
+
+（1）使用static的ThreadLocal，延长了ThreadLocal的生命周期，可能导致内存泄漏。
+（2）分配使用了ThreadLocal又不再调用get(),set(),remove()方法，那么就会导致内存泄漏，因为这块内存一直存在。
+</pre>
+
+<pre>
+mysql数据库锁表怎么解决？
+
+答：查询锁表信息
+当前运行的所有事务
+select * from information_schema.innodb_trx
+当前出现的锁
+select * from information_schema.innodb_locks
+锁等待的对应关系
+select * from information_schema.innodb_lock_waits  
+
+通过 select * from information_schema.innodb_trx 查询 trx_mysql_thread_id然后执行 kill 线程ID
+KILL   8807;//后面的数字即时进程的ID
+</pre>
+
+<pre>
+Spring+MyBatis实现读写分离简述？
+
+答：
+
+    方案一：通过MyBatis配置文件创建读写分离两个DataSource，每个SqlSessionFactoryBean对象的
+           mapperLocations属性制定两个读写数据源的配置文件。将所有读的操作配置在读文件中，所有写的操作配置在写文件中。
+    方案二：通过Spring AOP在业务层实现读写分离，在DAO层调用前定义切面，利用Spring的
+          AbstractRoutingDataSource解决多数据源的问题，实现动态选择数据源
+    方案三：通过Mybatis的Plugin在业务层实现数据库读写分离，在MyBatis创建Statement对象前通过拦截器选
+          择真正的数据源，在拦截器中根据方法名称不同（select、update、insert、delete）选择数据源。
+    方案四：通过spring的AbstractRoutingDataSource和mybatis Plugin拦截器实现非常友好的读写分离，原
+          有代码不需要任何改变。推荐第四种方案
+</pre>
