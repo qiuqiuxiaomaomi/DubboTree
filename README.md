@@ -250,3 +250,32 @@ Spring+MyBatis实现读写分离简述？
     方案四：通过spring的AbstractRoutingDataSource和mybatis Plugin拦截器实现非常友好的读写分离，原
           有代码不需要任何改变。推荐第四种方案
 </pre>
+
+![](https://i.imgur.com/zlKivHr.png)
+
+<pre>
+Dubbo的四种注册中心
+
+      1:Multicast注册中心
+        不需要启动任何中心节点，只要广播地址一样，就可以互相发现。组播受网络结构限制，只适合
+        小规模应用或开发阶段使用。
+
+        步骤：
+            1）提供方启动时广播自己的地址。
+            2）消费方启动时广播订阅请求。
+            3）提供方收到订阅请求时，单播自己的地址给订阅者，如果设置了unicast=false，则
+               广播给订阅者。
+            5）消费方收到提供方地址时，连接该地址进行RPC调用。
+</pre>
+
+<pre>
+Dubbo的四种注册中心
+
+      1:Zookeeper注册中心
+</pre>
+
+<pre>
+Dubbo的四种注册中心
+
+      1:Redis的发布订阅实现注册中心
+</pre>
